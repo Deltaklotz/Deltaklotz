@@ -1,0 +1,3 @@
+Hi, Im Deltakotz,
+this is just an Account to practice and show off some ideas.
+thats basically it...

